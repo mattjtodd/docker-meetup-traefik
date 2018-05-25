@@ -1,0 +1,74 @@
+version: '3'
+
+networks:
+  dmz:
+  backend:
+
+services:
+  edge:
+    image: traefik
+    command: --api --docker --docker.swarmMode --docker.watch
+    ports:
+      - "80:80"     # The HTTP port
+      - "8080:8080" # The Web UI (enabled by --api)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION:-6.2.4}
+    environment:
+      - "ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms256m -Xmx256m}"
+      - "cluster.name=luminate"
+      - "xpack.security.enabled=false"
+      - "http.host=0.0.0.0"
+      - "network.host=_eth0:ipv4_"
+      - "discovery.zen.ping.unicast.hosts=elasticsearch"
+      - "discovery.zen.minimum_master_nodes=${ES_MIN_MASTER_NODES:-1}"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - backend
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ES_VERSION:-6.2.4}
+    ports:
+      - "5601:5601"
+    environment:
+      - "ELASTICSEARCH_URL=http://elasticsearch:9200"
+      - "xpack.security.enabled=false"
+      - "xpack.monitoring.enabled=true"
+    networks:
+      - dmz
+      - backend
+
+  grafana:
+    image: grafana/grafana
+    networks:
+      - dmz
+      - backend
+    ports:
+      - 3000:3000
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana:/var/lib/grafana
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: grafana
+
+volumes:
+  elasticsearch:
+  grafana:
