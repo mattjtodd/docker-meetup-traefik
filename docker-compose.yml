@@ -7,67 +7,125 @@ networks:
 services:
   edge:
     image: traefik
-    command: --api --docker --docker.swarmMode --docker.watch
+    command: 
+      - --api
+      - --docker
+      - --docker.swarmMode
+      - --docker.watch
+      - --accessLog
+      - --accesslog.fields.defaultmode=keep
+      - --accessLog.format=json
+      - --traefikLog
+      - --traefikLog.format=json
+      - --web
+      - --web.metrics.prometheus
     ports:
-      - "80:80"     # The HTTP port
-      - "8080:8080" # The Web UI (enabled by --api)
+      - "80:80"
+      - "8080:8080"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
-
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION:-6.2.4}
-    environment:
-      - "ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms256m -Xmx256m}"
-      - "cluster.name=luminate"
-      - "xpack.security.enabled=false"
-      - "http.host=0.0.0.0"
-      - "network.host=_eth0:ipv4_"
-      - "discovery.zen.ping.unicast.hosts=elasticsearch"
-      - "discovery.zen.minimum_master_nodes=${ES_MIN_MASTER_NODES:-1}"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    cap_add:
-      - IPC_LOCK
-    networks:
-      - backend
-    volumes:
-      - elasticsearch:/usr/share/elasticsearch/data
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:${ES_VERSION:-6.2.4}
-    ports:
-      - "5601:5601"
-    environment:
-      - "ELASTICSEARCH_URL=http://elasticsearch:9200"
-      - "xpack.security.enabled=false"
-      - "xpack.monitoring.enabled=true"
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - dmz
-      - backend
-
-  grafana:
-    image: grafana/grafana
-    networks:
-      - dmz
-      - backend
-    ports:
-      - 3000:3000
-    environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana:/var/lib/grafana
     logging:
       driver: "fluentd"
       options:
-        fluentd-address: localhost:24224
-        tag: grafana
+        fluentd-address: 127.0.0.1:24224
+        tag: edge
+        fluentd-async-connect:
+        mode: non-blocking
+        max-buffer-size: 4m
+
+  web1:
+    image: go-webapp1:0.3
+    build: ./services
+    command: "-word web1"
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
+    networks:
+      - dmz
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: 127.0.0.1:24224
+        tag: web1
+        fluentd-async-connect:
+        mode: non-blocking
+        max-buffer-size: 4m
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.backend=web"
+        - "traefik.weight=1"
+        - "traefik.port=3000"
+        - "traefik.docker.network=dmz"
+        - "traefik.frontend.rule=PathPrefixStrip: /web/"
+        - "traefik.backend.loadbalancer.sticky=true"        
+
+  web2:
+    image: go-webapp1:0.3
+    build: ./services
+    command: "-word web2"
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
+    networks:
+      - dmz
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: 127.0.0.1:24224
+        tag: web2
+        fluentd-async-connect:
+        mode: non-blocking
+        max-buffer-size: 4m
+    deploy:
+      replicas: 0
+      labels:
+        - "traefik.backend=web"
+        - "traefik.weight=1"
+        - "traefik.port=3000"
+        - "traefik.docker.network=dmz"
+        - "traefik.frontend.rule=PathPrefixStrip: /web/"
+        - "traefik.backend.loadbalancer.sticky=true"
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: 127.0.0.1:24224
+        tag: prometheus
+        fluentd-async-connect:
+        mode: non-blocking
+        max-buffer-size: 4m
+
+  fluent:
+    image: fluent/fluent-bit
+    ports:
+      - 127.0.0.1:24224:24224
+    networks:
+      - backend
+
+  portainer:
+    image: portainer/portainer
+    command: -H unix:///var/run/docker.sock --no-auth
+    networks:
+      - dmz
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      labels:
+        - "traefik.backend=portainer"
+        - "traefik.port=9000"
+        - "traefik.docker.network=dmz"
+        - "traefik.frontend.rule=PathPrefixStrip:/portainer"
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: 127.0.0.1:24224
+        tag: prometheus
+        fluentd-async-connect:
+        mode: non-blocking
+        max-buffer-size: 4m
 
 volumes:
   elasticsearch:
