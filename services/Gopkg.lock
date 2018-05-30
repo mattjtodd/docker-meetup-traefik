@@ -8,12 +8,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/codahale/hdrhistogram"
-  packages = ["."]
-  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
-
-[[projects]]
   name = "github.com/golang/protobuf"
   packages = ["proto"]
   revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
@@ -24,16 +18,6 @@
   packages = ["pbutil"]
   revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
   version = "v1.0.1"
-
-[[projects]]
-  name = "github.com/opentracing/opentracing-go"
-  packages = [
-    ".",
-    "ext",
-    "log"
-  ]
-  revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
-  version = "v1.0.2"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -72,38 +56,29 @@
   revision = "fe93d378a6b03758a2c1b65e86cf630bf78681c0"
 
 [[projects]]
-  name = "github.com/uber/jaeger-client-go"
-  packages = [
-    ".",
-    "internal/baggage",
-    "internal/spanlog",
-    "internal/throttler",
-    "log",
-    "thrift",
-    "thrift-gen/agent",
-    "thrift-gen/jaeger",
-    "thrift-gen/sampling",
-    "thrift-gen/zipkincore",
-    "utils"
-  ]
-  revision = "b043381d944715b469fd6b37addfd30145ca1758"
-  version = "v2.14.0"
-
-[[projects]]
-  name = "github.com/uber/jaeger-lib"
-  packages = ["metrics"]
-  revision = "ed3a127ec5fef7ae9ea95b01b542c47fbd999ce5"
-  version = "v1.5.0"
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
-  name = "golang.org/x/net"
-  packages = ["context"]
-  revision = "89e543239a64caf31d3a6865872ea120b41446df"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  revision = "ab813273cd59e1333f7ae7bff5d027d4aadf528c"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = [
+    "unix",
+    "windows"
+  ]
+  revision = "c11f84a56e43e20a78cee75a7c034031ecf57d1f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "88e2babbd9e1a6e9667c416387ecd200ca71531fdeace240a4caf01754e0d86b"
+  inputs-digest = "7b16b7c455343334019a2c72b3fbe1ba85cb60aa58e58019a51f394b81df4487"
   solver-name = "gps-cdcl"
   solver-version = 1

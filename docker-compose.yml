@@ -36,9 +36,9 @@ services:
         max-buffer-size: 4m
 
   web1:
-    image: go-webapp1:0.3
+    image: mattjtodd/go-http-canary:0.2
     build: ./services
-    command: "-word web1"
+    command: "-word=web1"
     hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
     networks:
       - dmz
@@ -51,19 +51,20 @@ services:
         mode: non-blocking
         max-buffer-size: 4m
     deploy:
-      replicas: 1
+      replicas: 5
       labels:
         - "traefik.backend=web"
         - "traefik.weight=1"
         - "traefik.port=3000"
         - "traefik.docker.network=dmz"
         - "traefik.frontend.rule=PathPrefixStrip: /web/"
-        - "traefik.backend.loadbalancer.sticky=true"        
+        - "traefik.backend.loadbalancer.stickiness=true"
+        - "traefik.backend.healthcheck.path=/health"
 
-  web2:
-    image: go-webapp1:0.3
+  badCanary:
+    image: mattjtodd/go-http-canary:0.2
     build: ./services
-    command: "-word web2"
+    command: "-word=badCanary -badCanary=true"
     hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
     networks:
       - dmz
@@ -83,20 +84,34 @@ services:
         - "traefik.port=3000"
         - "traefik.docker.network=dmz"
         - "traefik.frontend.rule=PathPrefixStrip: /web/"
-        - "traefik.backend.loadbalancer.sticky=true"
+        - "traefik.backend.loadbalancer.stickiness=true"
+        - "traefik.backend.healthcheck.path=/health"
 
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - 9090:9090
+  goodCanary:
+    image: mattjtodd/go-http-canary:0.2
+    build: ./services
+    command: "-word=goodCanary -badCanary=false"
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
+    networks:
+      - dmz
     logging:
       driver: "fluentd"
       options:
         fluentd-address: 127.0.0.1:24224
-        tag: prometheus
+        tag: web2
         fluentd-async-connect:
         mode: non-blocking
         max-buffer-size: 4m
+    deploy:
+      replicas: 0
+      labels:
+        - "traefik.backend=web"
+        - "traefik.weight=1"
+        - "traefik.port=3000"
+        - "traefik.docker.network=dmz"
+        - "traefik.frontend.rule=PathPrefixStrip: /web/"
+        - "traefik.backend.loadbalancer.stickiness=true"
+        - "traefik.backend.healthcheck.path=/health"
 
   fluent:
     image: fluent/fluent-bit
@@ -104,29 +119,3 @@ services:
       - 127.0.0.1:24224:24224
     networks:
       - backend
-
-  portainer:
-    image: portainer/portainer
-    command: -H unix:///var/run/docker.sock --no-auth
-    networks:
-      - dmz
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    deploy:
-      labels:
-        - "traefik.backend=portainer"
-        - "traefik.port=9000"
-        - "traefik.docker.network=dmz"
-        - "traefik.frontend.rule=PathPrefixStrip:/portainer"
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: 127.0.0.1:24224
-        tag: prometheus
-        fluentd-async-connect:
-        mode: non-blocking
-        max-buffer-size: 4m
-
-volumes:
-  elasticsearch:
-  grafana:
