@@ -3,8 +3,17 @@ version: '3'
 networks:
   dmz:
   backend:
+  logging:
 
 services:
+
+  fluent:
+    image: fluent/fluent-bit
+    ports:
+      - 127.0.0.1:24224:24224
+    networks:
+      - logging
+
   edge:
     image: traefik
     command: 
@@ -26,6 +35,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - dmz
+      - backend
     logging:
       driver: "fluentd"
       options:
@@ -36,12 +46,12 @@ services:
         max-buffer-size: 4m
 
   web1:
-    image: mattjtodd/go-http-canary:0.2
+    image: mattjtodd/go-http-canary
     build: ./services
     command: "-word=web1"
     hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
     networks:
-      - dmz
+      - backend
     logging:
       driver: "fluentd"
       options:
@@ -51,23 +61,23 @@ services:
         mode: non-blocking
         max-buffer-size: 4m
     deploy:
-      replicas: 5
+      replicas: 0
       labels:
         - "traefik.backend=web"
         - "traefik.weight=1"
         - "traefik.port=3000"
-        - "traefik.docker.network=dmz"
+        - "traefik.docker.network=backend"
         - "traefik.frontend.rule=PathPrefixStrip: /web/"
         - "traefik.backend.loadbalancer.stickiness=true"
         - "traefik.backend.healthcheck.path=/health"
 
   badCanary:
-    image: mattjtodd/go-http-canary:0.2
+    image: mattjtodd/go-http-canary
     build: ./services
     command: "-word=badCanary -badCanary=true"
     hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
     networks:
-      - dmz
+      - backend
     logging:
       driver: "fluentd"
       options:
@@ -82,18 +92,18 @@ services:
         - "traefik.backend=web"
         - "traefik.weight=1"
         - "traefik.port=3000"
-        - "traefik.docker.network=dmz"
+        - "traefik.docker.network=backend"
         - "traefik.frontend.rule=PathPrefixStrip: /web/"
         - "traefik.backend.loadbalancer.stickiness=true"
         - "traefik.backend.healthcheck.path=/health"
 
   goodCanary:
-    image: mattjtodd/go-http-canary:0.2
+    image: mattjtodd/go-http-canary
     build: ./services
     command: "-word=goodCanary -badCanary=false"
     hostname: "{{.Service.Name}}-{{.Task.Slot}}-{{.Node.Hostname}}"
     networks:
-      - dmz
+      - backend
     logging:
       driver: "fluentd"
       options:
@@ -108,14 +118,7 @@ services:
         - "traefik.backend=web"
         - "traefik.weight=1"
         - "traefik.port=3000"
-        - "traefik.docker.network=dmz"
+        - "traefik.docker.network=backend"
         - "traefik.frontend.rule=PathPrefixStrip: /web/"
         - "traefik.backend.loadbalancer.stickiness=true"
         - "traefik.backend.healthcheck.path=/health"
-
-  fluent:
-    image: fluent/fluent-bit
-    ports:
-      - 127.0.0.1:24224:24224
-    networks:
-      - backend
